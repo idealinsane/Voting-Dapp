@@ -6,7 +6,8 @@ import Abi from "../contracts/Abi.json";
 import { toast } from "sonner";
 
 // const contractAdd = "0x1d50A75128E3295Df4cE9E5D5cc3AC5d02881134";
-const contractAdd = "0x2183373d076ca1b8aEbE541597A1B04dC7101a1F";
+// const contractAdd = "0x2183373d076ca1b8aEbE541597A1B04dC7101a1F";
+const contractAdd = "0x93a72bfe87cb2adb9efd2f937a25ad672fa4e6d4";
 
 const Login = ({ wallet }) => {
   const [walletConnected, setWalletConnected] = useState(false);

@@ -77,33 +77,17 @@ contract Vote {
                 poll.winnerAdd);
     }
     function candidateRegister(string calldata _name,string calldata _party,uint256 _age,string calldata _gender) votingNotStarted external  {
-        require(candidateVerification(msg.sender),"You have already registered");
         require(_age >= 18, "You are not eligible to be a candidate");
-        require(nextCandidateId < 3, "Registration is full");
-        candidateDetails[nextPollId][nextCandidateId] = Candidate(_name,_party,_age,_gender,nextCandidateId,msg.sender,0,nextPollId);   //ADDED
-        emit candidate(_name,_party,nextCandidateId,electionCommission,nextPollId); //ADDED candiadate Id while emitting in this event
+        candidateDetails[nextPollId][nextCandidateId] = Candidate(_name,_party,_age,_gender,nextCandidateId,msg.sender,0,nextPollId);
+        emit candidate(_name,_party,nextCandidateId,electionCommission,nextPollId);
         nextCandidateId++;
-    }
-
-    function candidateVerification(address _person) internal view returns (bool){
-        Candidate[] memory arr = new Candidate[](nextCandidateId - 1);
-
-        for (uint256 i = 1; i < nextCandidateId; i++) {
-            arr[i - 1] = candidateDetails[nextPollId][i];  //ADDED
-        }
-        for (uint256 i = 0; i < arr.length; i++) {
-            if (arr[i].candidateAddress == _person) {
-                return false;
-            }
-        }
-        return true;
     }
 
     function candidateList() public view   returns(Candidate[] memory) {
         Candidate[] memory arr = new Candidate[](nextCandidateId - 1);
 
         for (uint256 i = 1; i < nextCandidateId; i++) {
-            arr[i - 1] = candidateDetails[nextPollId][i];   //ADDED
+            arr[i - 1] = candidateDetails[nextPollId][i];
         }
         return arr;
     }
@@ -142,44 +126,64 @@ contract Vote {
 
     function vote(uint256 _voterId, uint256 _id) external votingNotStarted  isVotingOver {
         require(block.timestamp > startTime,"Voting time has not begun yet");
-        require(voterDetails[nextPollId][_voterId].voteCandidateId == 0,"You have already voted");      //ADDED
-        require(voterDetails[nextPollId][_voterId].voterAddress == msg.sender,"You are not a voter");       //ADDED [nextPollId]
+        require(voterDetails[nextPollId][_voterId].voteCandidateId == 0,"You have already voted");
+        require(voterDetails[nextPollId][_voterId].voterAddress == msg.sender,"You are not a voter");
         require(startTime != 0, "Voting has not started");
-        require(nextCandidateId > 2, "There are no candidates to vote");
-        require(_id < 3, "Candidate does not exist");
-        voterDetails[nextPollId][_voterId].voteCandidateId = _id;   //ADDED [nextPollId]
+        voterDetails[nextPollId][_voterId].voteCandidateId = _id;
         checkVoting[nextPollId][msg.sender] = true;
-        emit voter(voterDetails[nextPollId][_voterId].name, _id,msg.sender, electionCommission, nextPollId);    //ADDED [nextPollId]
-        candidateDetails[nextPollId][_id].votes++;  //ADDED [nextPollId]
+        emit voter(voterDetails[nextPollId][_voterId].name, _id,msg.sender, electionCommission, nextPollId);
+        candidateDetails[nextPollId][_id].votes++;
     }
 // to check wheter i can vote once the time has been declared before the the starttime ;
 
 
 
     function result() external {
-        require(msg.sender == electionCommission,"You are not from election commision");
         Candidate[] memory arr = new Candidate[](nextCandidateId - 1);
         arr = candidateList();
-
-        if (arr[0].votes > arr[1].votes) {
-            winner = arr[0].candidateAddress;
-            EcPolls[nextPollId].push(PollInfo(nextPollId,arr[0].name,arr[0].party,arr[0].candidateAddress));    //ADDED [nextPollId]
-            emit EcWinner(PollInfo(nextPollId,arr[0].name,arr[0].party,arr[0].candidateAddress),electionCommission);    //ADDED [nextPollId] ADDED mapping(uint => PollInfo[]) nextPOllId in place of msg.sender
-        } else {
-            winner = arr[1].candidateAddress;
-            EcPolls[nextPollId].push(PollInfo(nextPollId,arr[1].name,arr[1].party,arr[1].candidateAddress));    //ADDED [nextPollId] ADDED mapping(uint => PollInfo[]) SO nextPollId
-            emit EcWinner(PollInfo(nextPollId,arr[1].name,arr[1].party,arr[1].candidateAddress),electionCommission);    //ADDED [nextPollId]
+        
+        // 최다 득표자 찾기
+        uint256 maxVotes = 0;
+        uint256 winnerIndex = 0;
+        
+        for(uint256 i = 0; i < arr.length; i++) {
+            if(arr[i].votes > maxVotes) {
+                maxVotes = arr[i].votes;
+                winnerIndex = i;
+            }
         }
+        
+        // 당선자 정보 저장
+        winner = arr[winnerIndex].candidateAddress;
+        EcPolls[nextPollId].push(PollInfo(
+            nextPollId,
+            arr[winnerIndex].name,
+            arr[winnerIndex].party,
+            arr[winnerIndex].candidateAddress
+        ));
+        
+        // 이벤트 발생
+        emit EcWinner(
+            PollInfo(
+                nextPollId,
+                arr[winnerIndex].name,
+                arr[winnerIndex].party,
+                arr[winnerIndex].candidateAddress
+            ),
+            electionCommission
+        );
+
+        // 초기화
         electionCommission = address(0);
         nextVoterId = 1;
         nextCandidateId = 1;
         for(uint i=1;i<nextCandidateId;i++){
-            delete candidateDetails[nextPollId][i];     //ADDED [nextPollId]
+            delete candidateDetails[nextPollId][i];
         }   
         for(uint i=1;i<nextVoterId;i++){
-            delete voterDetails[nextPollId][i];     //ADDED [nextPollId]
+            delete voterDetails[nextPollId][i];
         }    
-        stopVoting = false;  //Voting has off
+        stopVoting = false;
         votingStatus = "Voting has ended";
     }
 
@@ -266,36 +270,3 @@ contract Vote {
     }
 
 }
-
-// ADDED 
-// added a new mapping which cheks if the person has voted or not and two functions which checks if candidate is registred or not and voted or not 
-
-
-
-// Mumbai test-5 
-// 0x600596e684a07ba2c9c6840cbc1c1Bf6247b97C7
-
-
-// ADDED 
-// Added checkkvoterId function and mapping so that user could directly vote from dashboard
-// added in candidate event the candidate Id so that user could vote from frontend
-
-// Mumbai test-6
-// 0x949233D6b00A6856f8Aab22D7A5a3AE228d7b159
-
-// made  a mistake in the frontend in the query syntax thought , that it was not fetching data so redeployed subgraph
-
-// Mumbai test-7
-// 0xbD1eE138543B437E680842d3615c9C8a60A81d18
-
-// CHANGED 
-// Changed ecPolls mapping mapping(address => PollInfo[]) to mapping(uint => PollInfo[]) so that we could access the winner
-
-// Mumbai test-8
-// 0x6fEf619d6039d84F18D8Cb9932Ab160803233bEa
-
-// ADDED 
-// changed the EcPollInfo so that i get particualar items in frontend
-
-// Mumbai test-9
-// 0x1d50A75128E3295Df4cE9E5D5cc3AC5d02881134
